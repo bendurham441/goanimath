@@ -25,7 +25,7 @@ func main() {
     base.Draw(dc)
     base.PlotPoint(dc, Coord{1, 1})
     dc.Identity()
-    base.PlotFunction(dc, 0.05, GraphFunction(func(n float64) (float64) {return math.Pow(n, 2)}))
+    base.LineGraphFunction(dc, 0.1, GraphFunction(func(n float64) (float64) {return 50 * math.Sin(n)}))
     dc.SavePNG("test.png")
 }
 
@@ -95,21 +95,34 @@ func (a *Axes) Draw(dc *gg.Context) error {
     return nil
 }
 
-func (a *Axes) PlotPoint(dc *gg.Context, coord Coord) error {
-    orig := a.findOrigin()
+func (a *Axes) TranslatePoint(coord Coord) Coord {
     pointX := coord.x / (a.xmax - a.xmin) * float64(width)
-    pointY := coord.y / (a.ymax - a.ymin) * float64(height)
+    pointY := -coord.y / (a.ymax - a.ymin) * float64(height)
+    return Coord{pointX, pointY}
+}
+
+func (a *Axes) LineGraphFunction(dc *gg.Context, inc float64, fn GraphFunction) error {
+    for i := a.xmin; i < a.xmax - inc; i = i + inc {
+        orig := a.findOrigin()
+        dc.SetLineWidth(5)
+        firstPoint := a.TranslatePoint(Coord{i, fn(i)})
+        secondPoint := a.TranslatePoint(Coord{i + inc, fn(i + inc)})
+        dc.DrawLine(orig.x + firstPoint.x, orig.y + firstPoint.y, orig.x + secondPoint.x, orig.y + secondPoint.y)
+    }
+    dc.Stroke()
+    return nil
+}
+
+type GraphFunction func(float64) float64
+
+func (a *Axes) PlotPoint(dc *gg.Context, coord Coord) (error) {
+    orig := a.findOrigin()
+    translatedPoint := a.TranslatePoint(coord)
+    pointX := translatedPoint.x
+    pointY := translatedPoint.y
     dc.DrawCircle(orig.x + pointX, orig.y - pointY, 10)
     dc.SetRGB(1, 1, 1)
     dc.Fill()
     return nil
 }
 
-type GraphFunction func(float64) float64
-
-func (a *Axes) PlotFunction(dc *gg.Context, inc float64, fn GraphFunction) error {
-    for i := a.xmin; i < a.xmax; i = i + inc {
-        a.PlotPoint(dc, Coord{i, fn(i)})
-    }
-    return nil
-}
